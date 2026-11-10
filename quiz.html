@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>CSL Practice</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--navy:#14213d;--orange:#f59e0b;--ink:#1b1b1b;--mut:#6b6558;--ok:#1a7f43;--bad:#b3261e}
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 Inter,system-ui,sans-serif;background:#faf7ef;color:var(--ink)}
+.top{background:var(--navy);color:#fff;padding:12px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}.top a{color:#fff}
+.wrap{max-width:760px;margin:0 auto;padding:18px}
+.card{background:#fff;border:1px solid #e5dfd0;border-radius:12px;padding:20px;margin-bottom:16px}
+.opt{display:block;width:100%;text-align:left;margin:8px 0;padding:12px 14px;border:2px solid #e5dfd0;border-radius:10px;background:#fff;font:16px Inter,system-ui;cursor:pointer}
+.opt:hover:not([disabled]){border-color:var(--navy)}.opt.right{border-color:var(--ok);background:#e3f4ea}.opt.wrong{border-color:var(--bad);background:#fbe5e2}
+.btn{background:var(--orange);color:#111;border:0;border-radius:8px;padding:12px 20px;font:600 16px Inter,system-ui;cursor:pointer;margin:6px 6px 0 0}
+.btn.alt{background:none;border:2px solid var(--navy);color:var(--navy)}
+.bar{height:8px;background:#eee7d6;border-radius:6px;overflow:hidden;margin-bottom:14px}.bar i{display:block;height:100%;background:var(--orange)}
+small{color:var(--mut)}.hide{display:none}
+</style></head><body>
+<div class="top"><b>CSL PREP</b><a href="account.html" id="back"></a><a href="#" id="lEn">🇺🇸 English</a><a href="#" id="lPt">🇧🇷 Português</a></div>
+<div class="wrap" id="app"></div>
+<script>
+const sb=supabase.createClient('https://kzhfqdvptcbgpxtfxjmz.supabase.co','sb_publishable_DoTwW05Xjutay5tFS4KkKA_bu0FFlGS');
+const P=new URLSearchParams(location.search);let lang=P.get('lang')||localStorage.getItem('lang')||'en';if(lang!=='pt')lang='en';
+const T={en:{back:'← My account',load:'Loading questions…',login:'Please log in to practice.',goLogin:'Go to login',none:'No questions are available for your account yet.',
+ hi:'Practice',have:n=>n+' questions available',shuffle:'Shuffle order',start:'Start',q:(i,n)=>'Question '+i+' of '+n,next:'Next',finish:'See score',right:'Correct!',wrong:'Incorrect. Correct answer: ',
+ done:'Finished',score:(a,b)=>'You scored '+a+' of '+b+' ('+Math.round(100*a/b)+'%)',again:'Practice again',wrongOnly:'Retry missed questions',acct:'Back to account'},
+ pt:{back:'← Minha conta',load:'Carregando questões…',login:'Faça login para praticar.',goLogin:'Ir para o login',none:'Ainda não há questões disponíveis para sua conta.',
+ hi:'Praticar',have:n=>n+' questões disponíveis',shuffle:'Embaralhar ordem',start:'Começar',q:(i,n)=>'Questão '+i+' de '+n,next:'Próxima',finish:'Ver resultado',right:'Correto!',wrong:'Incorreto. Resposta certa: ',
+ done:'Concluído',score:(a,b)=>'Você acertou '+a+' de '+b+' ('+Math.round(100*a/b)+'%)',again:'Praticar de novo',wrongOnly:'Refazer as erradas',acct:'Voltar à conta'}};
+const t=k=>T[lang][k],$=id=>document.getElementById(id),app=$('app');
+function top(){document.documentElement.lang=lang==='pt'?'pt-BR':'en';$('back').textContent=t('back');$('back').href='account.html?lang='+lang;localStorage.setItem('lang',lang)}
+$('lEn').onclick=e=>{e.preventDefault();lang='en';top();draw()};$('lPt').onclick=e=>{e.preventDefault();lang='pt';top();draw()};
+let ALL=[],set=[],i=0,score=0,missed=[],state='load',answered=false;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function shuf(a){a=a.slice();for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[a[k],a[j]]=[a[j],a[k]]}return a}
+function draw(){
+ if(state==='load'){app.innerHTML='<p>'+t('load')+'</p>';return}
+ if(state==='login'){app.innerHTML='<div class="card"><p>'+t('login')+'</p><a class="btn" style="text-decoration:none;display:inline-block" href="account.html?lang='+lang+'">'+t('goLogin')+'</a></div>';return}
+ if(state==='none'){app.innerHTML='<div class="card"><p>'+t('none')+'</p></div>';return}
+ if(state==='menu'){app.innerHTML='<div class="card"><h2>'+t('hi')+'</h2><p>'+t('have')(ALL.length)+'</p><label><input type="checkbox" id="sh" checked> '+t('shuffle')+'</label><br><button class="btn" id="go">'+t('start')+'</button></div>';
+  $('go').onclick=()=>begin(ALL,$('sh').checked);return}
+ if(state==='quiz'){const q=set[i];answered=false;
+  app.innerHTML='<div class="bar"><i style="width:'+(100*i/set.length)+'%"></i></div><div class="card"><small>'+t('q')(i+1,set.length)+'</small><h3 style="margin:8px 0 12px">'+esc(q.stem)+'</h3><div id="opts">'+q.options.map((o,k)=>'<button class="opt" data-k="'+k+'">'+'ABCD'[k]+'. '+esc(o)+'</button>').join('')+'</div><div id="fb"></div><button class="btn hide" id="nx"></button></div>';
+  document.querySelectorAll('.opt').forEach(b=>b.onclick=()=>pick(+b.dataset.k));return}
+ if(state==='end'){app.innerHTML='<div class="card"><h2>'+t('done')+'</h2><p style="font-size:20px">'+t('score')(score,set.length)+'</p><button class="btn" id="ag">'+t('again')+'</button>'+(missed.length?'<button class="btn alt" id="mi">'+t('wrongOnly')+'</button>':'')+'<a class="btn alt" style="text-decoration:none;display:inline-block" href="account.html?lang='+lang+'">'+t('acct')+'</a></div>';
+  $('ag').onclick=()=>{state='menu';draw()};if(missed.length)$('mi').onclick=()=>begin(missed.slice(),true)}
+}
+function begin(list,sh){set=sh?shuf(list):list.slice();i=0;score=0;missed=[];state='quiz';draw()}
+function pick(k){if(answered)return;answered=true;const q=set[i],ok=k===q.answer_index;
+ document.querySelectorAll('.opt').forEach(b=>{b.disabled=true;const x=+b.dataset.k;if(x===q.answer_index)b.classList.add('right');else if(x===k)b.classList.add('wrong')});
+ if(ok)score++;else missed.push(q);
+ $('fb').innerHTML='<p><b style="color:var(--'+(ok?'ok':'bad')+')">'+(ok?t('right'):t('wrong')+esc('ABCD'[q.answer_index]+'. '+q.options[q.answer_index]))+'</b></p>';
+ const nx=$('nx');nx.textContent=i+1<set.length?t('next'):t('finish');nx.classList.remove('hide');nx.onclick=()=>{if(i+1<set.length){i++;draw()}else{state='end';draw()}}}
+(async()=>{top();draw();const {data:{session}}=await sb.auth.getSession();if(!session){state='login';return draw()}
+ const {data,error}=await sb.from('questions').select('n,topic,stem,options,answer_index').order('n');
+ if(error||!data||!data.length){state='none';return draw()}ALL=data;state='menu';draw()})();
+</script></body></html>
